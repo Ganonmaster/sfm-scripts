@@ -5,6 +5,7 @@ import random
 def AddValidObjectToList( objectList, obj ):
 	if ( obj != None ): objectList.append( obj )
 	
+
 #==================================================================================================
 def HideControlGroups( rig, rootGroup, *groupNames ):
 	for name in groupNames:	
@@ -12,6 +13,7 @@ def HideControlGroups( rig, rootGroup, *groupNames ):
 		if ( group != None ):
 			rig.HideControlGroup( group )
 
+	
 #==================================================================================================
 # Create the reverse foot control and operators for the foot on the specified side
 #==================================================================================================
@@ -46,12 +48,15 @@ def CreateReverseFoot( controlName, sideName, gameModel, animSet, shot, helperCo
 	#		   + rig_heel_R
 	#			   + rig_footIK_R
 	
+  
 	# Construct the reverse heel joint this will be used to rotate the heel around the toe, and as
 	# such is positioned at the toe, but using the rotation of the foot which will be its parent, 
 	# so that it has no local rotation once parented to the foot.
 	reverseHeelName = "rig_reverseHeel_" + sideName
 	reverseHeelDag = sfm.CreateRigHandle( reverseHeelName, pos=toePos, rot=footRot, rotControl=False )
 	sfmUtils.Parent( reverseHeelName, footName, vs.REPARENT_LOGS_OVERWRITE )
+	
+	
 	
 	# Construct the heel joint, this will be used to rotate the foot around the back of the heel so it 
 	# is created at the heel location (offset from the foot) and also given the rotation of its parent.
@@ -124,6 +129,7 @@ def CreateReverseFoot( controlName, sideName, gameModel, animSet, shot, helperCo
 		
 	return ikHandleDag
 
+
 #==================================================================================================
 # Compute the direction from boneA to boneB
 #==================================================================================================
@@ -143,12 +149,15 @@ def ComputeVectorBetweenBones( boneA, boneB, scaleFactor ):
 	vs.mathlib.VectorScale( vDir, scaleFactor, vScaledDir )	
 	
 	return vScaledDir
+	
    
 #==================================================================================================
 # Add a list of bones to a group, if they exist. If not, fine!
 #==================================================================================================
-def CreateGroup(groupName, parentGroup, groupColor, *boneNames):
-	controlGroup = parentGroup.CreateControlGroup( groupName )
+def CreateGroup(groupName, groupColor, *boneNames):
+	animSet = sfm.GetCurrentAnimationSet()
+	rootGroup = animSet.GetRootControlGroup()
+	controlGroup = rootGroup.CreateControlGroup( groupName )
 	controlGroup.SetGroupColor( groupColor, False )
 	for bn in boneNames:
 		bone = sfmUtils.FindFirstDag( [bn], False )
@@ -228,11 +237,13 @@ def BuildRig():
 	rigToeL	= sfmUtils.CreateConstrainedHandle( "rig_toe_L",	boneToeL,	bCreateControls=False )
 	rigCollarL = sfmUtils.CreateConstrainedHandle( "rig_collar_L", boneCollarL, bCreateControls=False )
 	rigHandL   = sfmUtils.CreateConstrainedHandle( "rig_hand_L",   boneHandL,   bCreateControls=False )
+		
 	
 	# Use the direction from the heel to the toe to compute the knee offsets, 
 	# this makes the knee offset indpendent of the inital orientation of the model.
 	vKneeOffsetR = ComputeVectorBetweenBones( boneFootR, boneToeR, 10 )
 	vKneeOffsetL = ComputeVectorBetweenBones( boneFootL, boneToeL, 10 )
+	
 	
 	rigKneeR   = sfmUtils.CreateOffsetHandle( "rig_knee_R",  boneLowerLegR, vKneeOffsetR,  bCreateControls=False )   
 	rigKneeL   = sfmUtils.CreateOffsetHandle( "rig_knee_L",  boneLowerLegL, vKneeOffsetL,  bCreateControls=False )
@@ -248,6 +259,7 @@ def BuildRig():
 					  rigCollarR, rigElbowR, rigHandR, rigKneeR, rigFootR, rigToeR,
 					  rigCollarL, rigElbowL, rigHandL, rigKneeL, rigFootL, rigToeL ];
 	
+	
 	#==============================================================================================
 	# Generate the world space logs for the rig handles and remove the constraints
 	#==============================================================================================
@@ -255,6 +267,7 @@ def BuildRig():
 	sfmUtils.SelectDagList( allRigHandles )
 	sfm.GenerateSamples()
 	sfm.RemoveConstraints()	
+	
 	
 	#==============================================================================================
 	# Build the rig handle hierarchy
@@ -294,6 +307,7 @@ def BuildRig():
 	# set them once the final hierarchy is constructed.
 	sfm.SetDefault()
 	
+	
 	#==============================================================================================
 	# Create the reverse foot controls for both the left and right foot
 	#==============================================================================================
@@ -312,6 +326,7 @@ def BuildRig():
 			footIKTargetR = footRollIkTargetR
 		if ( footRollIkTargetL != None ) :
 			footIkTargetL = footRollIkTargetL
+	
 	
 	#==============================================================================================
 	# Create constraints to drive the bone transforms using the rig handles
@@ -337,6 +352,7 @@ def BuildRig():
 	sfmUtils.BuildArmLeg( rigElbowR, rigHandR,	  boneUpperArmR,  boneHandR, True )
 	sfmUtils.BuildArmLeg( rigElbowL, rigHandL,	  boneUpperArmL,  boneHandL, True )
 	
+	
 	#==============================================================================================
 	# Create handles for the important attachment points 
 	#==============================================================================================	
@@ -352,6 +368,8 @@ def BuildRig():
 	sfmUtils.CreateAttachmentHandleInGroup( "pvt_toe_L",		attachmentGroup )
 	sfmUtils.CreateAttachmentHandleInGroup( "pvt_outerFoot_L",  attachmentGroup )
 	sfmUtils.CreateAttachmentHandleInGroup( "pvt_innerFoot_L",  attachmentGroup )
+	
+	
 	
 	#==============================================================================================
 	# Re-organize the selection groups
@@ -379,35 +397,52 @@ def BuildRig():
 	LeftLegGroup = rootGroup.CreateControlGroup(  "LeftLeg" )   
 	
 	
-	################################
-	ArmTwistLGroup = CreateGroup( "Left Arm Twist", LeftArmGroup, LeftColor, "Twist_Shoulder.L", "Twist_Shoulder_2.L", "Adjust_Elbow.L", "Twist_Elbow.L", "Twist_Elbow_2.L", "Metacarpal.L" )
+	
+	ArmTwistLGroup = CreateGroup( "Left Arm Twist", LeftColor, "Twist_Shoulder.L", "Twist_Shoulder_2.L", "Adjust_Elbow.L", "Twist_Elbow.L", "Twist_Elbow_2.L", "Metacarpal.L" )
 	ArmTwistLGroup.SetSelectable( False )
-	ArmTwistRGroup = CreateGroup( "Right Arm Twist", RightArmGroup, RightColor, "Twist_Shoulder.R", "Twist_Shoulder_2.R", "Adjust_Elbow.R", "Twist_Elbow.R", "Twist_Elbow_2.R", "Metacarpal.R" )
+	ArmTwistRGroup = CreateGroup( "Right Arm Twist", RightColor, "Twist_Shoulder.R", "Twist_Shoulder_2.R", "Adjust_Elbow.R", "Twist_Elbow.R", "Twist_Elbow_2.R", "Metacarpal.R" )
 	ArmTwistRGroup.SetSelectable( False )
 	
-	LegTwistLGroup = CreateGroup( "Left Leg Twist", LeftLegGroup, LeftColor, "Twist_Thigh.L", "Twist_Thigh_2.L", "Adjust_Knee.L", "Twist_Knee.L" )
+	LegTwistLGroup = CreateGroup( "Left Leg Twist", LeftColor, "Twist_Thigh.L", "Twist_Thigh_2.L", "Adjust_Knee.L", "Twist_Knee.L" )
 	LegTwistLGroup.SetSelectable( False )
-	LegTwistRGroup = CreateGroup( "Right Leg Twist", RightLegGroup, RightColor, "Twist_Thigh.R", "Twist_Thigh_2.R", "Adjust_Knee.R", "Twist_Knee.R" )
+	LegTwistRGroup = CreateGroup( "Right Leg Twist", RightColor, "Twist_Thigh.R", "Twist_Thigh_2.R", "Adjust_Knee.R", "Twist_Knee.R" )
 	LegTwistRGroup.SetSelectable( False )
 	
-	GenitalsGroup = CreateGroup( "Erogenous", rootGroup, topLevelColor, "Butt.L","Butt.R", "Pussy.L", "Pussy.R" )
+	GenitalsGroup = CreateGroup( "Erogenous", topLevelColor, "Butt.L","Butt.R", "Pussy.L", "Pussy.R" )
 	GenitalsGroup.SetSelectable( False )
-	BreastsLGroup = CreateGroup( "Breasts Left", GenitalsGroup, LeftColor, "Breast_Base_Parent.L", "Breast_Base.L", "Breast_Tip.L", "Breast_1.L", "Breast_2.L", "Breast_3.L", "Breast_4.L", "Breast_5.L" )
-	BreastsRGroup = CreateGroup( "Breasts Right", GenitalsGroup, RightColor, "Breast_Base_Parent.R", "Breast_Base.R", "Breast_Tip.R", "Breast_1.R", "Breast_2.R", "Breast_3.R", "Breast_4.R", "Breast_5.R" )
+	BreastsLGroup = CreateGroup( "Breasts Left", LeftColor, "Breast_Base_Parent.L", "Breast_Base.L", "Breast_Tip.L", "Breast_1.L", "Breast_2.L", "Breast_3.L", "Breast_4.L", "Breast_5.L" )
+	BreastsRGroup = CreateGroup( "Breasts Right", RightColor, "Breast_Base_Parent.R", "Breast_Base.R", "Breast_Tip.R", "Breast_1.R", "Breast_2.R", "Breast_3.R", "Breast_4.R", "Breast_5.R" )
 	
-	WingsGroup = CreateGroup( "Wings", rootGroup, topLevelColor )
-	WingsLGroup = CreateGroup( "Left Wings", WingsGroup, LeftColor, "Wing_Root.L", "Wing_0.L", "Wing_1.L", "Wing_2.L", "Wing_20.L", "Wing_21.L", "Wing_3.L", "Wing_4.L" )
-	WingsRGroup = CreateGroup( "Right Wings", WingsGroup, RightColor, "Wing_Root.R", "Wing_0.R", "Wing_1.R", "Wing_2.R", "Wing_20.R", "Wing_21.R", "Wing_3.R", "Wing_4.R" )
 	
-	FaceGroup = CreateGroup( "Face", rootGroup, topLevelColor, "Jaw", "Tongue_01", "Tongue_02" )
-	EyesGroup = CreateGroup( "Eyes", FaceGroup, CustomColor, "Eyeball.L", "Eyeball.R" )
-	EyebrowsGroup = CreateGroup( "Eyebrows", EyesGroup, CustomColor2, "Eyebrow_Outer.L", "Eyebrow_Outer.R", "Eyebrow_Middle.L", "Eyebrow_Middle.R", "Eyebrow_Inner.L", "Eyebrow_Inner.R", "Forehead.L", "Forehead.R", "Eyebrow_Middle" )
-	EyelidsGroup = CreateGroup( "Eyelids", EyesGroup, CustomColor2, "Eyelid_Upper.L", "Eyelid_Upper.R", "Eyelid_Lower.L", "Eyelid_Lower.R", "Eyelid_Lower_Outer.L", "Eyelid_Lower_Outer.R", "Eyelid_Lower_Inner.L", "Eyelid_Lower_Inner.R" ) #dunno if I want left/right in these. 
-	CheeksGroup = CreateGroup( "Cheeks", FaceGroup, CustomColor, "Cheek_Outer.L", "Cheek_Outer.R", "Cheek_Inner.L", "Cheek_Inner.R", "Cheek_Main.L", "Cheek_Main.R", "NoseLine_Inner.L", "NoseLine_Inner.R", "NoseLine_Outer.L", "NoseLine_Outer.R" )
-	NoseGroup = CreateGroup( "Nose", FaceGroup, CustomColor, "Nose_Upper.L", "Nose_Upper.R", "Nose_Lower.L", "Nose_Lower.R", "Nose_Tip" )
-	LipsGroup = CreateGroup("Lips", FaceGroup, CustomColor, "Lip_Corner.L", "Lip_Corner.R", "Lip_Upper.L", "Lip_Upper.R", "Lip_Lower.L", "Lip_Lower.R", "Lip_Lower_Middle", "Lip_Upper_Middle" )
-	################################
+	WingsGroup = CreateGroup( "Wings", topLevelColor )
+	WingsLGroup = CreateGroup( "Left Wings", LeftColor, "Wing_Root.L", "Wing_0.L", "Wing_1.L", "Wing_2.L", "Wing_20.L", "Wing_21.L", "Wing_3.L", "Wing_4.L" )
+	WingsRGroup = CreateGroup( "Right Wings", RightColor, "Wing_Root.R", "Wing_0.R", "Wing_1.R", "Wing_2.R", "Wing_20.R", "Wing_21.R", "Wing_3.R", "Wing_4.R" )
 	
+	FaceGroup = CreateGroup( "Face", topLevelColor, "Jaw", "Tongue_01", "Tongue_02" )
+	EyesGroup = CreateGroup( "Eyes", CustomColor, "Eyeball.L", "Eyeball.R" )
+	EyebrowsGroup = CreateGroup( "Eyebrows", CustomColor2, "Eyebrow_Outer.L", "Eyebrow_Outer.R", "Eyebrow_Middle.L", "Eyebrow_Middle.R", "Eyebrow_Inner.L", "Eyebrow_Inner.R", "Forehead.L", "Forehead.R", "Eyebrow_Middle" )
+	EyelidsGroup = CreateGroup( "Eyelids", CustomColor2, "Eyelid_Upper.L", "Eyelid_Upper.R", "Eyelid_Lower.L", "Eyelid_Lower.R", "Eyelid_Lower_Outer.L", "Eyelid_Lower_Outer.R", "Eyelid_Lower_Inner.L", "Eyelid_Lower_Inner.R" ) #dunno if I want left/right in these. 
+	CheeksGroup = CreateGroup( "Cheeks", CustomColor2, "Cheek_Outer.L", "Cheek_Outer.R", "Cheek_Inner.L", "Cheek_Inner.R", "Cheek_Main.L", "Cheek_Main.R", "NoseLine_Inner.L", "NoseLine_Inner.R", "NoseLine_Outer.L", "NoseLine_Outer.R" )
+	NoseGroup = CreateGroup( "Nose", CustomColor2, "Nose_Upper.L", "Nose_Upper.R", "Nose_Lower.L", "Nose_Lower.R", "Nose_Tip" )
+	LipsGroup = CreateGroup("Lips", CustomColor2, "Lip_Corner.L", "Lip_Corner.R", "Lip_Upper.L", "Lip_Upper.R", "Lip_Lower.L", "Lip_Lower.R", "Lip_Lower_Middle", "Lip_Upper_Middle" )
+	
+	FaceGroup.AddChild( EyesGroup )
+	FaceGroup.AddChild( CheeksGroup )
+	FaceGroup.AddChild( NoseGroup )
+	FaceGroup.AddChild( LipsGroup )
+	EyesGroup.AddChild( EyebrowsGroup )
+	EyesGroup.AddChild( EyelidsGroup )
+	
+	WingsGroup.AddChild( WingsLGroup )
+	WingsGroup.AddChild( WingsRGroup )
+	
+	GenitalsGroup.AddChild( BreastsLGroup )
+	GenitalsGroup.AddChild( BreastsRGroup )
+	
+	LeftArmGroup.AddChild( ArmTwistLGroup )
+	RightArmGroup.AddChild( ArmTwistRGroup )
+	LeftLegGroup.AddChild( LegTwistLGroup )
+	RightLegGroup.AddChild( LegTwistRGroup )
 	
 	sfmUtils.AddDagControlsToGroup( rigBodyGroup, rigRoot, rigPelvis, rigHips, rigSpine1, rigSpine2, rigNeck, rigHead )  
 	  
