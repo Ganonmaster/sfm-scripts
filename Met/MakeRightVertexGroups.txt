@@ -1,0 +1,23 @@
+import bpy
+
+#This makes vertex groups ending in .R for each that ends in .L. 
+#It exists because I always fuck up and remove unused vertex groups on my mirrored meshes, which removes the stuff that this re-adds. 
+#stuff that's used by the mirror modifier counts as unused for the Remove Unused Vertexgroups script that I got from somewhere)
+
+#Just select the mesh and run.
+
+myObj = bpy.context.object
+vGroups = myObj.vertex_groups
+
+for v in vGroups:
+    splitName = v.name.split(".")
+    try:
+        if(splitName[1] == "L"):
+            newName = splitName[0]+".R"
+            if(newName not in vGroups):
+                bpy.ops.object.vertex_group_add()
+                vGroups[len(vGroups)-1].name = newName
+    except IndexError:
+        print("fuck you")
+    except KeyError:
+        print("fuck you too")

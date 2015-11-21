@@ -147,37 +147,52 @@ def ComputeVectorBetweenBones( boneA, boneB, scaleFactor ):
 #==================================================================================================
 # Add a list of bones to a group, if they exist. If not, fine!
 #==================================================================================================
-def CreateGroup(groupName, parentGroup, groupColor, *boneNames):
-	controlGroup = parentGroup.CreateControlGroup( groupName )
-	controlGroup.SetGroupColor( groupColor, False )
+
+def CreateGroup(groupName, parentGroup, groupColor, canBeEmpty=False, selectable=True, boneNames=[]):
+	actualBones = []
+	print("making group: %s" % groupName)
 	
 	for bn in boneNames:
 		bone = sfmUtils.FindFirstDag( [bn], False )
 		if( bone != None ):
-			sfmUtils.AddDagControlsToGroup( controlGroup, bone )
+			actualBones.append(bone)
 			continue #no need to do the next parts then. (we assume regular bone names don't include '#' or end with '_'
 		
 		names = [bn]
 		splitName = bn.split('#') #hashtag means: "nose#4.L" -> look for "nose.L", "nose0.L", "nose1.L" ... "nose4.L"
-		if( len( splitName ) > 2):
+		if( len( splitName ) > 2): #numbers
 			count = int(splitName[1]) #second element should be the part between the hashtags, aka the count.
+			names.append(splitName[0]+splitName[2]) #without the zero
 			for i in range(0, count+1):
 				names.append( splitName[0]+str(i)+splitName[2] )
+			for i in range(0, 9):
+				names.append( splitName[0]+str(0)+str(i)+splitName[2] ) #man this is filthy - TODO
 				
-		for n in names:
+		for n in names: #left and right
 			if("//" in n):	#could probably be more optimized but come on, this is SFM.
 				names.append( n.replace("//", "L"))
 				names.append( n.replace("//", "R"))
-			if("/r" in n):
-				names.append( n.replace("/r", "R"))
-			if("/l" in n):
-				names.append( n.replace("/l", "L"))
-		for n in names:
+		
+		newNames = names[:] #making a copy rather than a reference, otherwise this infinite loops.(altho it shouldnt so idk why)
+		for n in names: #letters
+			alphabet = "abcdefghijklmno"
+			for l in alphabet:
+				newNames.append( n.replace('§', l) )
+				
+		for n in newNames: #finding bones
 			bone = sfmUtils.FindFirstDag( [n], False )
 			if( bone != None ):
-				sfmUtils.AddDagControlsToGroup( controlGroup, bone )
+				actualBones.append(bone)
 				
-	return controlGroup
+	if(len(actualBones) > 0 or canBeEmpty): #if it isn't empty, create the group
+		controlGroup = parentGroup.CreateControlGroup( groupName )
+		controlGroup.SetGroupColor( groupColor, False )
+		controlGroup.SetSelectable( selectable )
+		for b in actualBones:
+			sfmUtils.AddDagControlsToGroup( controlGroup, b )
+		return controlGroup
+	else:
+		return None
 	
 #==================================================================================================
 # Build a simple ik rig for the currently selected animation set
@@ -189,6 +204,7 @@ def BuildRig():
 	animSet = sfm.GetCurrentAnimationSet()
 	gameModel = animSet.gameModel
 	rootGroup = animSet.GetRootControlGroup()
+	print(gameModel.children[0].name)
 	
 	# Start the biped rig to which all of the controls and constraints will be added
 	rig = sfm.BeginRig( "rig_biped_" + animSet.GetName() + str(random.randint(0, 10000)));
@@ -213,23 +229,23 @@ def BuildRig():
 	boneNeck	  = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_Neck",		"Bip01_Neck",		"bip_neck_0",	"bip_neck", "ValveBiped.Bip01_Neck1", "Neck" ], True )
 	boneHead	  = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_Head",		"Bip01_Head",		"bip_head",		"ValveBiped.Bip01_Head1", "Head", "Head1" ], True )
 	
-	boneUpperLegR = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Thigh",	"Bip01_R_Thigh",	"bip_hip_R" ], True )
-	boneLowerLegR = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Calf",	 "Bip01_R_Calf",	 "bip_knee_R" ], True )
-	boneFootR	 = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Foot",	 "Bip01_R_Foot",	 "bip_foot_R" ], True )
-	boneToeR	  = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Toe0",	 "Bip01_R_Toe0",	 "bip_toe_R" ], True ) 
-	boneCollarR   = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Clavicle", "Bip01_R_Clavicle", "bip_collar_R" ], True )   
-	boneUpperArmR = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_UpperArm", "Bip01_R_UpperArm", "bip_upperArm_R" ], True ) 
-	boneLowerArmR = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Forearm",  "Bip01_R_Forearm",  "bip_lowerArm_R" ], True )
-	boneHandR	 = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Hand",	 "Bip01_R_Hand",	 "bip_hand_R" ], True )
+	boneUpperLegR = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Thigh",	"Bip01_R_Thigh",	"bip_hip_R", "Thigh.R" ], True )
+	boneLowerLegR = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Calf",	 "Bip01_R_Calf",	 "bip_knee_R", "Calf.R" ], True )
+	boneFootR	 = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Foot",	 "Bip01_R_Foot",	 "bip_foot_R", "Foot.R" ], True )
+	boneToeR	  = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Toe0",	 "Bip01_R_Toe0",	 "bip_toe_R", "Toe.R" ], True ) 
+	boneCollarR   = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Clavicle", "Bip01_R_Clavicle", "bip_collar_R", "Clavicle.R" ], True )   
+	boneUpperArmR = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_UpperArm", "Bip01_R_UpperArm", "bip_upperArm_R", "UpperArm.R", "Shoulder.R" ], True ) 
+	boneLowerArmR = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Forearm",  "Bip01_R_Forearm",  "bip_lowerArm_R", "Forearm.R", "LowerArm.R" ], True )
+	boneHandR	 = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Hand",	 "Bip01_R_Hand",	 "bip_hand_R", "Hand.R" ], True )
    
-	boneUpperLegL = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Thigh",	"Bip01_L_Thigh",	"bip_hip_L" ], True )
-	boneLowerLegL = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Calf",	 "Bip01_L_Calf",	 "bip_knee_L" ], True )
-	boneFootL	 = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Foot",	 "Bip01_L_Foot",	 "bip_foot_L" ], True )
-	boneToeL	  = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Toe0",	 "Bip01_L_Toe0",	 "bip_toe_L" ], True ) 
-	boneCollarL   = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Clavicle", "Bip01_L_Clavicle", "bip_collar_L" ], True )		
-	boneUpperArmL = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_UpperArm", "Bip01_L_UpperArm", "bip_upperArm_L" ], True ) 
-	boneLowerArmL = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Forearm",  "Bip01_L_Forearm",  "bip_lowerArm_L" ], True ) 
-	boneHandL	 = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Hand",	 "Bip01_L_Hand",	 "bip_hand_L" ], True )
+	boneUpperLegL = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Thigh",	"Bip01_L_Thigh",	"bip_hip_L", "Thigh.L" ], True )
+	boneLowerLegL = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Calf",	 "Bip01_L_Calf",	 "bip_knee_L", "Calf.L" ], True )
+	boneFootL	 = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Foot",	 "Bip01_L_Foot",	 "bip_foot_L", "Foot.L" ], True )
+	boneToeL	  = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Toe0",	 "Bip01_L_Toe0",	 "bip_toe_L", "Toe.L" ], True ) 
+	boneCollarL   = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Clavicle", "Bip01_L_Clavicle", "bip_collar_L", "Clavicle.L" ], True )		
+	boneUpperArmL = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_UpperArm", "Bip01_L_UpperArm", "bip_upperArm_L", "UpperArm.L", "Shoulder.L" ], True ) 
+	boneLowerArmL = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Forearm",  "Bip01_L_Forearm",  "bip_lowerArm_L", "Forearm.L", "LowerArm.L" ], True ) 
+	boneHandL	 = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Hand",	 "Bip01_L_Hand",	 "bip_hand_L", "Hand.L" ], True )
 
 	#==============================================================================================
 	# Create the rig handles and constrain them to existing bones
@@ -388,11 +404,31 @@ def BuildRig():
 	rigBodyGroup = rootGroup.CreateControlGroup( "RigBody" )
 	rigArmsGroup = rootGroup.CreateControlGroup( "RigArms" )
 	
-	BodyGroup = rootGroup.CreateControlGroup( "Body" )
-	LegsGroup = rootGroup.CreateControlGroup( "Legs" )
-	ArmsGroup = rootGroup.CreateControlGroup( "Arms" )
-	BodyGroup.AddChild( LegsGroup )
-	BodyGroup.AddChild( ArmsGroup )
+	BodyGroup = CreateGroup( "Body", rootGroup, topLevelColor, selectable=False, boneNames=[ "ValveBiped.Bip01_Pelvis",		"Bip01_Pelvis",		"bip_pelvis", "Pelvis" ,
+		"ValveBiped.Bip01_Spine1",		"Bip01_Spine1",		"bip_spine_1", "Spine",
+		"ValveBiped.Bip01_Spine2",		"Bip01_Spine2",		"bip_spine_2", "Spine1",
+		"ValveBiped.Bip01_Neck",		"Bip01_Neck",		"bip_neck_0",	"bip_neck", "ValveBiped.Bip01_Neck1", "Neck",
+		"ValveBiped.Bip01_Head",		"Bip01_Head",		"bip_head",		"ValveBiped.Bip01_Head1", "Head", "Head1"	] )
+	LegsGroup = CreateGroup( "Legs", BodyGroup, topLevelColor, selectable=False, boneNames=[ 
+		"ValveBiped.Bip01_R_Thigh",	"Bip01_R_Thigh",	"bip_hip_R", "Thigh.R" ,
+		"ValveBiped.Bip01_L_Thigh",	"Bip01_L_Thigh",	"bip_hip_L", "Thigh.L",
+		"ValveBiped.Bip01_R_Calf",	 "Bip01_R_Calf",	 "bip_knee_R", "Calf.R" ,
+		"ValveBiped.Bip01_L_Calf",	 "Bip01_L_Calf",	 "bip_knee_L", "Calf.L",
+		"ValveBiped.Bip01_R_Foot",	 "Bip01_R_Foot",	 "bip_foot_R", "Foot.R",
+		"ValveBiped.Bip01_L_Foot",	 "Bip01_L_Foot",	 "bip_foot_L", "Foot.L",
+		"ValveBiped.Bip01_R_Toe0",	 "Bip01_R_Toe0",	 "bip_toe_R", "Toe.R",
+		"ValveBiped.Bip01_L_Toe0",	 "Bip01_L_Toe0",	 "bip_toe_L", "Toe.L"
+	] )
+	ArmsGroup = CreateGroup( "Arms", BodyGroup, topLevelColor, selectable=False, boneNames=[ 
+		"ValveBiped.Bip01_R_Clavicle", "Bip01_R_Clavicle", "bip_collar_R", "Clavicle.R",
+		"ValveBiped.Bip01_L_Clavicle", "Bip01_L_Clavicle", "bip_collar_L", "Clavicle.L",
+		"ValveBiped.Bip01_R_UpperArm", "Bip01_R_UpperArm", "bip_upperArm_R", "UpperArm.R", "Shoulder.R",
+		"ValveBiped.Bip01_L_UpperArm", "Bip01_L_UpperArm", "bip_upperArm_L", "UpperArm.L", "Shoulder.L",
+		"ValveBiped.Bip01_R_Forearm",  "Bip01_R_Forearm",  "bip_lowerArm_R", "Forearm.R", "LowerArm.R",
+		"ValveBiped.Bip01_L_Forearm",  "Bip01_L_Forearm",  "bip_lowerArm_L", "Forearm.L", "LowerArm.L",
+		"ValveBiped.Bip01_R_Hand",	 "Bip01_R_Hand",	 "bip_hand_R", "Hand.R",
+		"ValveBiped.Bip01_L_Hand",	 "Bip01_L_Hand",	 "bip_hand_L", "Hand.L"
+	] )
 	BodyGroup.AddChild( rigHelpersGroup )
 	
 	RightArmGroup = rootGroup.CreateControlGroup( "RightArm" )
@@ -402,44 +438,61 @@ def BuildRig():
 	
 	
 	################################
-	ArmTwistLGroup = CreateGroup( "Left Arm Twist", LeftArmGroup, LeftColor, "Twist_Shoulder.L", "Twist_Shoulder_2.L", "Adjust_Elbow.L", "Twist_Elbow.L", "Twist_Elbow_2.L", "Metacarpal.L" )
-	ArmTwistLGroup.SetSelectable( False )
-	ArmTwistRGroup = CreateGroup( "Right Arm Twist", RightArmGroup, RightColor, "Twist_Shoulder.R", "Twist_Shoulder_2.R", "Adjust_Elbow.R", "Twist_Elbow.R", "Twist_Elbow_2.R", "Metacarpal.R" )
-	ArmTwistRGroup.SetSelectable( False )
+	ArmTwistLGroup = CreateGroup( "Left Arm Twist", LeftArmGroup, LeftColor, selectable=False, boneNames=["Twist_Shoulder.L", "Twist_Shoulder_2.L", "Adjust_Elbow.L", "Twist_Elbow.L", "Twist_Elbow_2.L", "Metacarpal.L"] )
+	ArmTwistRGroup = CreateGroup( "Right Arm Twist", RightArmGroup, RightColor, selectable=False, boneNames=["Twist_Shoulder.R", "Twist_Shoulder_2.R", "Adjust_Elbow.R", "Twist_Elbow.R", "Twist_Elbow_2.R", "Metacarpal.R"] )
 	
-	LegTwistLGroup = CreateGroup( "Left Leg Twist", LeftLegGroup, LeftColor, "Twist_Thigh.L", "Twist_Thigh_2.L", "Adjust_Knee.L", "Twist_Knee.L" )
-	LegTwistLGroup.SetSelectable( False )
-	LegTwistRGroup = CreateGroup( "Right Leg Twist", RightLegGroup, RightColor, "Twist_Thigh.R", "Twist_Thigh_2.R", "Adjust_Knee.R", "Twist_Knee.R" )
-	LegTwistRGroup.SetSelectable( False )
+	LegTwistLGroup = CreateGroup( "Left Leg Twist", LeftLegGroup, LeftColor, selectable=False, boneNames=["Twist_Thigh.L", "Twist_Thigh_2.L", "Adjust_Knee.L", "Twist_Knee.L"] )
+	LegTwistRGroup = CreateGroup( "Right Leg Twist", RightLegGroup, RightColor, selectable=False, boneNames=["Twist_Thigh.R", "Twist_Thigh_2.R", "Adjust_Knee.R", "Twist_Knee.R"] )
 	
-	GenitalsGroup = CreateGroup( "Erogenous", rootGroup, topLevelColor, "Butt._", "Pussy._" )
-	GenitalsGroup.SetSelectable( False )
-	BreastsLGroup = CreateGroup( "Breasts Left", GenitalsGroup, LeftColor, "Breast_Base_Parent.L", "Breast_Base.L", "Breast_Tip.L", "Breast_1.L", "Breast_2.L", "Breast_3.L", "Breast_4.L", "Breast_5.L" )
-	BreastsRGroup = CreateGroup( "Breasts Right", GenitalsGroup, RightColor, "Breast_Base_Parent.R", "Breast_Base.R", "Breast_Tip.R", "Breast_1.R", "Breast_2.R", "Breast_3.R", "Breast_4.R", "Breast_5.R" )
+	FingersLGroup = CreateGroup( "LeftFingers", LeftArmGroup, LeftColor, selectable=False, boneNames=["ValveBiped.Bip01_L_Finger#50#", "Finger#50#.L"] )#who needs defaultanimationgroups.txt? pssh.
+	FingersRGroup = CreateGroup( "RightFingers", RightArmGroup, RightColor, selectable=False, boneNames=["ValveBiped.Bip01_R_Finger#50#", "Finger#50#.R"] )
+	
+	GenitalsGroup = CreateGroup( "Erogenous", rootGroup, topLevelColor, selectable=False, canBeEmpty=True, boneNames=["Butt.//", "Pussy.//"] )
+	BreastsLGroup = CreateGroup( "Breasts Left", GenitalsGroup, LeftColor, boneNames=["Breast_Base_Parent.L", "Breast_Base.L", "Breast_Tip.L", "Breast_#5#.L"] )
+	BreastsRGroup = CreateGroup( "Breasts Right", GenitalsGroup, RightColor, boneNames=["Breast_Base_Parent.R", "Breast_Base.R", "Breast_Tip.R", "Breast_#5#.R"] )
+	LabiaGroup = CreateGroup( "Labia", GenitalsGroup, GenitalColor, boneNames=["Root_Labia", "Labia_#6#.//"] )
+	VaginaGroup = CreateGroup( "Vagina", GenitalsGroup, GenitalColor, boneNames=["Root_Vagina", "Root_Vagoo", "vagina.#5#", "Vagina_#6#.//"] )
+	AnusGroup = CreateGroup( "Anus", GenitalsGroup, GenitalColor, boneNames=["Root_Anus", "anus.#5#", "Anus.//.#5#"] )
 	
 	WingsGroup = CreateGroup( "Wings", rootGroup, topLevelColor )
-	WingsLGroup = CreateGroup( "Left Wings", WingsGroup, LeftColor, "Wing_Root.L", "Wing_#20#.L" )
-	WingsRGroup = CreateGroup( "Right Wings", WingsGroup, RightColor, "Wing_Root.R", "Wing_#20#.R" )
+	WingsLGroup = CreateGroup( "Left Wings", WingsGroup, LeftColor, boneNames=["Wing_Root.L", "Wing_#21#.L"] )
+	WingsRGroup = CreateGroup( "Right Wings", WingsGroup, RightColor, boneNames=["Wing_Root.R", "Wing_#21#.R"] )
 	
-	TailGroup = CreateGroup( "Tail", rootGroup, topLevelColor, "tail", "tail #13#")
+	TailGroup = CreateGroup( "Tail", rootGroup, topLevelColor, boneNames=["tail", "tail #13#"] )
 	
-	HairGroup = CreateGroup( "Hair", rootGroup, topLevelColor )
-	HairLeftGroup = CreateGroup ("Left Hair", HairGroup, LeftColor, "/l_hair#100#")
-	HairRightGroup = CreateGroup ("Right Hair", HairGroup, RightColor, "/r_hair#100#")
+	HairGroup = CreateGroup( "Hair", rootGroup, topLevelColor, boneNames=["Hair_Root", "Hair_Front", "Hair_Front.//", "Hair_Back_#8#"] )
+	HairLeftGroup = CreateGroup( "Left Hair", HairGroup, LeftColor, boneNames=["l_hair#100#", "Hair_Tail.L", "Hair_Tail.L.#10#", "Hair_#20#.L", "Hair_Front_#5#.L"] )
+	HairRightGroup = CreateGroup( "Right Hair", HairGroup, RightColor, boneNames=["r_hair#100#", "Hair_Tail.R", "Hair_Tail.R.#10#", "Hair_#20#.R", "Hair_Front_#5#.R"] )
 	
 	
-	FaceGroup = CreateGroup( "Face", rootGroup, topLevelColor, "Jaw", "Tongue_01", "Tongue_02" )
-	EyesGroup = CreateGroup( "Eyes", FaceGroup, CustomColor, "Eyeball._" )
-	EyebrowsGroup = CreateGroup( "Eyebrows", EyesGroup, CustomColor2, "Eyebrow_Outer.L", "Eyebrow_Outer.R", "Eyebrow_Middle.L", "Eyebrow_Middle.R", "Eyebrow_Inner.L", "Eyebrow_Inner.R", "Forehead.L", "Forehead.R", "Eyebrow_Middle" )
-	EyelidsGroup = CreateGroup( "Eyelids", EyesGroup, CustomColor2, "Eyelid_Upper.L", "Eyelid_Upper.R", "Eyelid_Lower.L", "Eyelid_Lower.R", "Eyelid_Lower_Outer.L", "Eyelid_Lower_Outer.R", "Eyelid_Lower_Inner.L", "Eyelid_Lower_Inner.R" ) #dunno if I want left/right in these. 
-	CheeksGroup = CreateGroup( "Cheeks", FaceGroup, CustomColor, "Cheek_Outer.L", "Cheek_Outer.R", "Cheek_Inner.L", "Cheek_Inner.R", "Cheek_Main.L", "Cheek_Main.R", "NoseLine_Inner.L", "NoseLine_Inner.R", "NoseLine_Outer.L", "NoseLine_Outer.R" )
-	NoseGroup = CreateGroup( "Nose", FaceGroup, CustomColor, "Nose_Upper._", "Nose_Lower._", "Nose_Tip", 
-	"nose.#4")
-	LipsGroup = CreateGroup("Lips", FaceGroup, CustomColor, "Lip_Corner.L", "Lip_Corner.R", "Lip_Upper.L", "Lip_Upper.R", "Lip_Lower.L", "Lip_Lower.R", "Lip_Lower_Middle", "Lip_Upper_Middle",
-	)
+	FaceGroup = CreateGroup( "Face", rootGroup, topLevelColor, boneNames=["Jaw", "Tongue_01", "Tongue_02", "Teeth.T", "Teeth.B", "throat"] )
+	EyesGroup = CreateGroup( "Eyes", FaceGroup, CustomColor, boneNames=["Eyeball.//", "eye.//"] )
+	EyebrowsGroup = CreateGroup( "Eyebrows", EyesGroup, CustomColor2, boneNames=["Eyebrow_Outer.//", "Eyebrow_Middle.//", "Eyebrow_Inner.//", "Eyebrow_Middle", "brow.T.//", "brow.T.//.#5#"] )
+	LowerEyelidsGroup = CreateGroup( "Lower Eyelids", EyesGroup, CustomColor2, boneNames=["Eyelid_Lower.//", "Eyelid_Lower_Outer.//", "Eyelid_Lower_Inner.//", "lid.B.//", "lid.B.//.#5#"] ) #dunno if I want left/right in these. 
+	UpperEyelidsGroup = CreateGroup( "Upper Eyelids", EyesGroup, CustomColor2, boneNames=["Eyelid_Upper.//", "lid.T.//", "lid.T.//.#5#"] )
+	LowerEyebrowsGroup = CreateGroup ("Lower Eyebrows", EyesGroup, CustomColor2, boneNames=["Eyebrow_Lower_Root.//", "brow.B.//", "brow.B.//.#5#"] )
+	ForeHeadGroup = CreateGroup( "Forehead", FaceGroup, CustomColor, boneNames=["temple.//", "forehead.//", "forehead.//.#4#"] )
+	NoseGroup = CreateGroup( "Nose", FaceGroup, CustomColor, boneNames=["Nose_Upper.//", "Nose_Lower.//", "Nose_Tip", "Nostril.//", "nose.//", "nose", "nose.#4#", "nose.//.#2#"])
+	CheeksGroup = CreateGroup( "Cheeks", FaceGroup, CustomColor, boneNames=["Cheek_Outer.//", "Cheek_Inner.//", "Cheek_Main.//", "NoseLine_Inner.//", "NoseLine_Outer.//", "cheek.T.//", "cheek.T.//.#3#", "cheek.B.//", "cheek.B.//.#3#"] )
+	JawGroup = CreateGroup( "Jaw", FaceGroup, CustomColor, boneNames=["jaw", "jaw.//", "jaw.//.#2#", "chin", "chin.#2#", "chin.//"] )
+	LipsGroup = CreateGroup( "Lips", FaceGroup, CustomColor, boneNames=["Lip_Corner.//", "Lip_Upper.//", "Lip_Lower.//", "Lip_Lower_Middle", "Lip_Upper_Middle", "lip.T.//", "lip.T.//.#3#", "lip.B.//", "lip.B.//.#3#"] )
+	EarsGroup = CreateGroup( "Ears", FaceGroup, CustomColor, boneNames=["ear.//", "ear.//.#6#"] )
+	
+	ClothesGroup = CreateGroup( "Clothes", rootGroup, topLevelColor, canBeEmpty=True, boneNames=["shades", "glasses"])
+	RibbonsGroup = CreateGroup( "Ribbons", ClothesGroup, CustomColor, boneNames=["ribbon back #20#", "ribbon §#5#"] )
+	
+	###MODEL SPECIFIC SHIT
+	#Met's Motoko
+	MotokoGroup = CreateGroup( "Motoko Gear", ClothesGroup, CustomColor, boneNames=["ThighGear", "Pouch_Big", "Pouch_Small", "Mag1", "Mag2", "Pouch_Belt", "Pistol", "Zip_Root", "Zip", "BackPad.//"] )
+	CollarGroup = CreateGroup( "Collar", ClothesGroup, CustomColor, boneNames=["Collar_Back", "Collar.//"] )
+	#Met's DoA5 5Tina
+	FringeArmLeftGroup = CreateGroup( "Arm Left Fringe", LeftArmGroup, LeftColor, selectable=False, boneNames=["Fringe_Arm_#5#.L", "Fringe_Wrist.L"] )
+	FringeLegLeftGroup = CreateGroup( "Leg Left Fringe", LeftLegGroup, LeftColor, selectable=False, boneNames=["Fringe_Leg_#5#.L"] )
+	FringeArmRightGroup = CreateGroup( "Arm Right Fringe", RightArmGroup, RightColor, selectable=False, boneNames=["Fringe_Arm_#5#.R", "Fringe_Wrist.R"] )
+	FringeLegRightGroup = CreateGroup( "Leg Right Fringe", RightLegGroup, RightColor, selectable=False, boneNames=["Fringe_Leg_#5#.R"] )
+	LassoGroup = CreateGroup( "Lasso", ClothesGroup, CustomColor, selectable=False, boneNames=["lasso root", "lasso #5#"] )
+	
 	################################
-	
-	
 	sfmUtils.AddDagControlsToGroup( rigBodyGroup, rigRoot, rigPelvis, rigHips, rigSpine1, rigSpine2, rigNeck, rigHead )  
 	  
 	rigArmsGroup.AddChild( RightArmGroup )
