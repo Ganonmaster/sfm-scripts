@@ -2,7 +2,7 @@ import bpy
 #XNA Cleanup + renaming to ValveBiped convention
 
 #look through every mesh's vertexgroups, and add their names to a list.
-#Then, look through every bone in the armature of the meshes, and if their name isnt contained in the list, rename them to DELETEME_x (cause idk how to delete via script, lel ._. - plus, some of them are useful)
+#Then, look through every bone in the armature of the meshes, and if their name isnt contained in the list, rename them to DELETEME_x (cause idk how to delete via script, lel ._.
 
 #need the armature to be selected, which is the parent of each mesh.
 vGroupList = []
