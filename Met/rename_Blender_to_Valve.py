@@ -1,5 +1,5 @@
 import bpy
-# renaming from blender to valve convention after mirroring.
+# renaming from blender to valve convention after mirroring.	#Pretty fucking useless, considering the blender convention will work just fine in SFM.
 vGroupList = []
 myObject = bpy.context.object
 

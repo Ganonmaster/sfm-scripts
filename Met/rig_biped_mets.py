@@ -1,13 +1,25 @@
+#Version B6.1
+#Dva
+#2016.02.29
+
+#I'll document this shit later. If you want to see the magic, go to def regexGroup()
+
 import vs
 import random
+import re
+
+#The script is not finished yet. When it will be, I'll release it as an individual SFMLab upload.
+
 #TODO - search for all the TODO's and do them. Delete legacy code, clean up actual code, refactor variable names, document with consistent comment placement and correct grammar
 #TODO - implement removal of single-controller groups.
 #TODO - consider if it would possibly be easier to collect the hierarcy into a storage first before actually creating it, and rather than fixing single-control groups, prevent them.
-#TODO - add stuff from redmenace's defaultanimgroups and my XNA script, as well as stuff from every other rig script
+#TODO - make it compatible with as many models and conventions as possible - skyrim, XNA, etc.
 #TODO - upgrade the way rig bones are listed and found, just like the spine works so gloriously. also, did I implement that for the neck and head? I think not. do that too.
+#TODO - make toes optional, however the autorigger guy did it.
+#TODO - clavicles even^
+#TODO - all kinds of bad shit happens when the rig gets re-applied after getting removed. flexes fuck up, groups get duplicated
 
-#Global Variables - These should be accessible from anywhere in the script, it only makes sense.
-animSet = sfm.GetCurrentAnimationSet()
+#Global Variables - These should be accessible from anywhere in the script
 shot = sfm.GetCurrentShot()
 animSet = sfm.GetCurrentAnimationSet()
 gameModel = animSet.gameModel
@@ -15,10 +27,17 @@ rootGroup = animSet.GetRootControlGroup()
 rootBone = gameModel.children[0]
 controlGroups = animSet.rootControlGroup.children
 
-def AddValidObjectToList( objectList, obj ):
+topLevelColor = vs.Color( 0, 128, 255, 255 )
+RightColor = vs.Color( 255, 0, 0, 255 )
+LeftColor = vs.Color( 0, 255, 0, 255 )
+CustomColor = vs.Color( 15, 128, 55, 255 )
+CustomColor2 = vs.Color( 30, 185, 85, 255 )
+GenitalColor = vs.Color( 230, 30, 200, 255 )
+
+def AddValidObjectToList( objectList, obj ):		#TODO - Valve's worthless function, never used, delete it
 	if ( obj != None ): objectList.append( obj )
 
-def HideControlGroups( rig, rootGroup, *groupNames ):
+def HideControlGroups( rig, rootGroup, *groupNames ):	#TODO - similar to the above, but used once.
 	for name in groupNames:	
 		group = rootGroup.FindChildByName( name, False )
 		if ( group != None ):
@@ -159,23 +178,69 @@ def ComputeVectorBetweenBones( boneA, boneB, scaleFactor ):
 #==================================================================================================
 # Add a list of bones to a group, if they exist. If not, fine!
 #==================================================================================================
-
-def AddFlexesToGroup(group, *flexNames):	#TODO: make the same syntax available for flexes as bones(separate that string magic into a new function)
-	#TODO: remove the dmEle from its original place
-	indiciesToDelete = [] # I realized it's pointless to delete things from the unknown tab, since flexes can exist as many times as you want. also note that this never worked correctly.
+'''
+def AddFlexesToGroup(group, *flexNames):	#TODO: this shit with regex. maybe merge this functionality with the two regex functions.
 	for g in controlGroups:
-		for dmEle in g.controls: #bones are not in controls, but under children, so now we are only iterating through flexes and constraints.
+		for dmEle in g.controls: #bones are not in .controls, but under .children, so now we are only iterating through flexes and constraints this way.
 			dmName = str(dmEle.name)
-			if "Constraint" not in dmName: #and that should filter out constrains! In a very nasty way. Just how I like it.
-				counter = 0
-				for n in flexNames:		#for each passed in flexname
-					if n == str(dmName):	#if the flexname matches
+			if "Constraint" not in dmName:
+				for n in flexNames:
+					if n == str(dmName):
 						#print("found flex: %s" %n)
-						group.controls.append(dmEle)	#add the flex to the group that was passed in
-						indiciesToDelete.append(counter)
-					counter += 1
-
-def CreateGroup(groupName, parentGroup, groupColor, selectable=True, boneNames=[]):
+						group.controls.append(dmEle)	#adding the flex to the group that was passed in
+						
+'''
+	
+def regexGroup(groupName, parentGroup, groupColor, regex, selectable=True):
+	rei = re.compile(regex, re.I)
+	retGroup = parentGroup.CreateControlGroup( groupName )
+	
+	for b in allBones:
+		if re.search(rei, str(b.name)):
+			sfmUtils.AddDagControlsToGroup( retGroup, b )
+	
+	
+	#TODO - this fucks up when trying to re-apply the rig from a model that it was earlier on.
+	
+	if("unnamed" not in str(parentGroup.name) and False):
+		for g in controlGroups:
+			for dmEle in g.controls: #bones are not in .controls, but under .children, so now we are only iterating through flexes and constraints this way.
+				if re.search(rei, str(dmEle.name)) and type(dmEle) is not None:
+					retGroup.controls.append(dmEle)
+	
+	retGroup.SetGroupColor( groupColor, False )
+	retGroup.SetSelectable(selectable)
+	return retGroup
+'''
+def stereoRegexGroup(groupName, regex, parentGL, parentGR):	#TODO - could avoid some duplicate code by calling regexGroup() twice in this function.
+	reiL = re.compile("((?=.*"+regex+"))(?=.*( L|\.L|left|_L))", re.I)
+	reiR = re.compile("((?=.*"+regex+"))(?=.*( R|\.R|right|_R)(?!oot))", re.I)	#excludes "hair.root" "hair_root", etc.
+	
+	GroupL = parentGL.CreateControlGroup( "Left "+groupName )
+	GroupR = parentGR.CreateControlGroup( "Right "+groupName )
+	for b in allBones:
+		if re.search(reiL, str(b.name)):
+			sfmUtils.AddDagControlsToGroup( GroupL, b )
+		if re.search(reiR, str(b.name)):
+			sfmUtils.AddDagControlsToGroup( GroupR, b )
+	
+	GroupL.SetGroupColor( LeftColor, False )
+	GroupR.SetGroupColor( RightColor, False )
+	
+	ret = [GroupL, GroupR]
+	return ret
+'''
+def stereoRegexGroup(groupName, regex, parentGL, parentGR, selectable=False):	#TODO - could avoid some duplicate code by calling regexGroup() twice in this function.
+	reL = "((?=.*"+regex+"))(?=.*( L|\.L|left|_L))"
+	reR = "((?=.*"+regex+"))(?=.*( R|\.R|right|_R)(?!oot))"	#excludes "hair.root" "hair_root", etc.
+	
+	GroupL = regexGroup( "Left %s" %groupName, parentGL, LeftColor, reL, selectable )
+	GroupR = regexGroup( "Right %s" %groupName, parentGR, RightColor, reR, selectable )
+	
+	ret = [GroupL, GroupR]
+	return ret
+'''
+def CreateGroup(groupName, parentGroup, groupColor, selectable=True, boneNames=[]):	#TODO delete this, it's shite.
 	actualBones = []
 	#print("making group: %s" % groupName)
 	
@@ -200,7 +265,7 @@ def CreateGroup(groupName, parentGroup, groupColor, selectable=True, boneNames=[
 				names.append( n.replace("//", "L"))
 				names.append( n.replace("//", "R"))
 		
-		newNames = names[:] #making a copy rather than a reference, otherwise this infinite loops.(altho it shouldnt so idk why)
+		newNames = names[:] #making a copy rather than a reference, otherwise this infinite loops, or crashes for some other reason, I have no idea.
 		for n in names: #letters
 			alphabet = "abcdefghijklmno"
 			for l in alphabet:
@@ -210,7 +275,7 @@ def CreateGroup(groupName, parentGroup, groupColor, selectable=True, boneNames=[
 			bone = sfmUtils.FindFirstDag( [n], False )
 			if( bone != None ):
 				actualBones.append(bone)
-				
+		
 	controlGroup = parentGroup.CreateControlGroup( groupName )
 	controlGroup.SetGroupColor( groupColor, False )
 	controlGroup.SetSelectable( selectable )
@@ -220,9 +285,10 @@ def CreateGroup(groupName, parentGroup, groupColor, selectable=True, boneNames=[
 		
 #TODO: function AddBonesToGroup - should be used by CreateGroup
 #combineGroups(g1, g2) - for combining left and right groups that don't have enough elements to warrant a separate group.
+'''
 	
-	
-def getChildren(dag): #unused, fun, recursive function for exploring!
+'''
+def getChildren(dag): #this one's shit, I forgot why. TODO delete
 	#return a list of bones that are the children of the parameter
 	bones = []
 	for i in dag.children:
@@ -232,9 +298,21 @@ def getChildren(dag): #unused, fun, recursive function for exploring!
 			bones.append(j)
 	return bones
 '''
+
+def getChildren2(dag):	#Why did I need this again? I'm sure I needed it for something. I think I would need it for avoiding the creation of 1-2-controller groups.
+	bones = []
+	#print("children: %s" %dag.children)
+	for i in dag.children:
+		bones += [i]
+		if i.children : 		#if it's not empty
+			bones += getChildren2(i)
+	return bones
+
+allBones = getChildren2(rootBone)
+
+'''
 def CleanUp(dag):	#IM A FUCKING IDIOT. THERE IS ALREADY A FUNCTION FOR THIS. DmeControlGroup.DestroyEmptyChildren()
 	bones = []
-	
 	crap = True
 	
 	if dag.children: #if it has sub-groups
@@ -251,12 +329,12 @@ def CleanUp(dag):	#IM A FUCKING IDIOT. THERE IS ALREADY A FUNCTION FOR THIS. Dme
 		return True
 	return bones
 '''
-def FindChildBySubStr(bone, subStr):
-	#print("looking for string %s in children of %s"%(subStr, bone))
+	
+
+def FindChildBySubStr(bone, regex):
+	rei = re.compile(regex, re.I)
 	for b in bone.children:
-		#print("looking in bone %s" %b.name)
-		if subStr.lower() in str(b.name).lower():
-			#print("found")
+		if re.search(rei, str(b)):
 			return b
 	return None
 	
@@ -307,18 +385,19 @@ def BuildRig():
 	
 	#OR INSTEAD what we could do, is parent the rig right after it is created, and generate samples and shit later.
 	#After the new rig handles have their hierarchy down, parent them to their bones with pointorientconstraint.
-	
+
 	bonePelvis = FindChildBySubStr(rootBone, "Pelvis")
 	if(bonePelvis == None):
 		bonePelvis = rootBone
 	
-	#print("pelvis: %s"%bonePelvis)
 	boneSpines = []
 	boneSpines.append(bonePelvis)
+	#print(str(bonePelvis.name))
 	
 	while(True):	#I also like to live dangerously
-		boneSpine = FindChildBySubStr(boneSpines[len(boneSpines)-1], "spine")
+		boneSpine = FindChildBySubStr(boneSpines[len(boneSpines)-1], "^(?!.*adjust.*).*spine.*$")
 		if(boneSpine != None):
+			#print("found: %s" %str(boneSpine.name))
 			boneSpines.append(boneSpine)
 			#print("found %s" %str(boneSpine.name))
 		else:break
@@ -335,21 +414,21 @@ def BuildRig():
 	boneHead	  = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_Head",		"Bip01_Head",		"bip_head",		"ValveBiped.Bip01_Head1", "Head", "Head1" ], True )
 	
 	boneUpperLegR = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Thigh",	"Bip01_R_Thigh",	"bip_hip_R", "Thigh.R", "UpperLeg.R" ], True )
-	boneLowerLegR = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Calf",	 "Bip01_R_Calf",	 "bip_knee_R", "Calf.R", "LowerLeg.R" ], True )
+	boneLowerLegR = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Calf",	 "Bip01_R_Calf",	 "bip_knee_R", "Calf.R", "LowerLeg.R", "Shin.R" ], True )
 	boneFootR	 = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Foot",	 "Bip01_R_Foot",	 "bip_foot_R", "Foot.R" ], True )
-	boneToeR	  = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Toe0",	 "Bip01_R_Toe0",	 "bip_toe_R", "Toe.R" ], True ) 
-	boneCollarR   = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Clavicle", "Bip01_R_Clavicle", "bip_collar_R", "Clavicle.R", "Clav.R" ], True )   
+	boneToeR	  = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Toe0", "ValveBiped.Bip01_R_Toe",	 "Bip01_R_Toe0",	 "bip_toe_R", "Toe.R" ], True ) 
+	boneCollarR   = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Clavicle", "Bip01_R_Clavicle", "bip_collar_R", "Clavicle.R", "Clav.R", "Collar.R" ], True )   
 	boneUpperArmR = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_UpperArm", "Bip01_R_UpperArm", "bip_upperArm_R", "UpperArm.R", "Shoulder.R" ], True ) 
-	boneLowerArmR = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Forearm",  "Bip01_R_Forearm",  "bip_lowerArm_R", "Forearm.R", "LowerArm.R" ], True )
+	boneLowerArmR = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Forearm",  "Bip01_R_Forearm",  "bip_lowerArm_R", "Forearm.R", "LowerArm.R", "Elbow.R" ], True )
 	boneHandR	 = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_R_Hand",	 "Bip01_R_Hand",	 "bip_hand_R", "Hand.R" ], True )
    
 	boneUpperLegL = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Thigh",	"Bip01_L_Thigh",	"bip_hip_L", "Thigh.L", "UpperLeg.L" ], True )
-	boneLowerLegL = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Calf",	 "Bip01_L_Calf",	 "bip_knee_L", "Calf.L", "LowerLeg.L" ], True )
+	boneLowerLegL = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Calf",	 "Bip01_L_Calf",	 "bip_knee_L", "Calf.L", "LowerLeg.L", "Shin.L" ], True )
 	boneFootL	 = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Foot",	 "Bip01_L_Foot",	 "bip_foot_L", "Foot.L" ], True )
-	boneToeL	  = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Toe0",	 "Bip01_L_Toe0",	 "bip_toe_L", "Toe.L" ], True ) 
-	boneCollarL   = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Clavicle", "Bip01_L_Clavicle", "bip_collar_L", "Clavicle.L", "Clav.L" ], True )		
+	boneToeL	  = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Toe0", "ValveBiped.Bip01_L_Toe",	 "Bip01_L_Toe0",	 "bip_toe_L", "Toe.L" ], True ) 
+	boneCollarL   = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Clavicle", "Bip01_L_Clavicle", "bip_collar_L", "Clavicle.L", "Clav.L", "Collar.L" ], True )		
 	boneUpperArmL = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_UpperArm", "Bip01_L_UpperArm", "bip_upperArm_L", "UpperArm.L", "Shoulder.L" ], True ) 
-	boneLowerArmL = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Forearm",  "Bip01_L_Forearm",  "bip_lowerArm_L", "Forearm.L", "LowerArm.L" ], True ) 
+	boneLowerArmL = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Forearm",  "Bip01_L_Forearm",  "bip_lowerArm_L", "Forearm.L", "LowerArm.L", "Elbow.L" ], True ) 
 	boneHandL	 = sfmUtils.FindFirstDag( [ "ValveBiped.Bip01_L_Hand",	 "Bip01_L_Hand",	 "bip_hand_L", "Hand.L" ], True )
 
 	#==============================================================================================
@@ -512,33 +591,32 @@ def BuildRig():
 	#==============================================================================================
 	# Re-organize the selection groups
 	#==============================================================================================  
-	topLevelColor = vs.Color( 0, 128, 255, 255 )
-	RightColor = vs.Color( 255, 0, 0, 255 )
-	LeftColor = vs.Color( 0, 255, 0, 255 )
-	CustomColor = vs.Color( 15, 128, 55, 255 )
-	CustomColor2 = vs.Color( 30, 185, 85, 255 )
-	GenitalColor = vs.Color( 230, 30, 200, 255 )
 	
 	rigBodyGroup = rootGroup.CreateControlGroup( "RigBody" )
 	rigArmsGroup = rootGroup.CreateControlGroup( "RigArms" )
 	
-	BodyGroup = CreateGroup( "Body", rootGroup, topLevelColor, selectable=False, boneNames=[ "ValveBiped.Bip01_Pelvis",		"Bip01_Pelvis",		"bip_pelvis", "Pelvis" ,
-		"ValveBiped.Bip01_Spine1",		"Bip01_Spine1",		"bip_spine_1", "Spine",
-		"ValveBiped.Bip01_Spine2",		"Bip01_Spine2",		"bip_spine_2", "Spine1", "Spine.1", "Spine.2",
-		"ValveBiped.Bip01_Neck",		"Bip01_Neck",		"bip_neck_0",	"bip_neck", "ValveBiped.Bip01_Neck1", "Neck",
-		"ValveBiped.Bip01_Head",		"Bip01_Head",		"bip_head",		"ValveBiped.Bip01_Head1", "Head", "Head1"	] )
+	BodyGroup = regexGroup( "Body", rootGroup, topLevelColor, "head|neck|spine|pelvis|hip")
+	LegsGroup = regexGroup( "Legs", BodyGroup, topLevelColor, "leg|thigh|calf|upperleg|knee|foot|shin" )
+	ArmsGroup = regexGroup( "Arms", BodyGroup, topLevelColor, "clav|collar|shoulder|upperarm|forearm|lowerarm|elbow|hand" )
+	'''
 	LegsGroup = CreateGroup( "Legs", BodyGroup, topLevelColor, selectable=False, boneNames=[ 
 		"ValveBiped.Bip01_//_Thigh",	"Bip01_//_Thigh",	"bip_hip_//", "Thigh.//" , "UpperLeg.//",
 		"ValveBiped.Bip01_//_Calf",	 "Bip01_//_Calf",	 "bip_knee_//", "Calf.//" , "LowerLeg.//",
 		"ValveBiped.Bip01_//_Foot",	 "Bip01_//_Foot",	 "bip_foot_//", "Foot.//",
-		"ValveBiped.Bip01_//_Toe0",	 "Bip01_//_Toe0",	 "bip_toe_//", "Toe.//",
+		"ValveBiped.Bip01_//_Toe0", "ValveBiped.Bip01_//_Toe",	 "Bip01_//_Toe0",	 "bip_toe_//", "Toe.//",
 	] )
 	ArmsGroup = CreateGroup( "Arms", BodyGroup, topLevelColor, selectable=False, boneNames=[ 
 		"ValveBiped.Bip01_//_Clavicle", "Bip01_//_Clavicle", "bip_collar_//", "Clavicle.//", "Clav.//",
 		"ValveBiped.Bip01_//_UpperArm", "Bip01_//_UpperArm", "bip_upperArm_//", "UpperArm.//", "Shoulder.//", "UpperArm.//",
 		"ValveBiped.Bip01_//_Forearm",  "Bip01_//_Forearm",  "bip_lowerArm_//", "Forearm.//", "LowerArm.//", "LowerArm.//",
-		"ValveBiped.Bip01_//_Hand",	 "Bip01_//_Hand",	 "bip_hand_//", "Hand.//",
+		"ValveBiped.Bip01_//_Hand",	 "Bip01_//_Hand",	 "bip_hand_//", "Hand.//", "Elbow.//"
 	] )
+	BodyGroup = CreateGroup( "Body", rootGroup, topLevelColor, selectable=False, boneNames=[ "ValveBiped.Bip01_Pelvis",	"Bip01_Pelvis",		"bip_pelvis", "Pelvis" , "Hips", "ValveBiped.Bip01_Hips",
+		"ValveBiped.Bip01_Spine1",		"Bip01_Spine1",		"bip_spine_1", "Spine#4#", 
+		"ValveBiped.Bip01_Spine2",		"Bip01_Spine2",		"bip_spine_2", "Spine.#4#", 
+		"ValveBiped.Bip01_Neck",		"Bip01_Neck",		"bip_neck_0",	"bip_neck", "ValveBiped.Bip01_Neck1", "Neck",
+		"ValveBiped.Bip01_Head",		"Bip01_Head",		"bip_head",		"ValveBiped.Bip01_Head1", "Head", "Head1", "Head.//"	] )
+	'''
 	BodyGroup.AddChild( rigHelpersGroup )
 	
 	RightArmGroup = rootGroup.CreateControlGroup( "RightArm" )
@@ -546,65 +624,113 @@ def BuildRig():
 	RightLegGroup = rootGroup.CreateControlGroup(  "RightLeg" )
 	LeftLegGroup = rootGroup.CreateControlGroup(  "LeftLeg" )   
 	
-	
 	################################
-	ArmTwistLGroup = CreateGroup( "Left Arm Twist", LeftArmGroup, LeftColor, selectable=False, boneNames=["Twist_Shoulder.L", "Twist_Shoulder_2.L", "Adjust_Elbow.L", "Twist_Elbow.L", "Twist_Elbow_2.L", "Metacarpal.L", "Clav_FK.L", "UpperArm_FK.L", "LowerArm_FK.L"] )
-	ArmTwistRGroup = CreateGroup( "Right Arm Twist", RightArmGroup, RightColor, selectable=False, boneNames=["Twist_Shoulder.R", "Twist_Shoulder_2.R", "Adjust_Elbow.R", "Twist_Elbow.R", "Twist_Elbow_2.R", "Metacarpal.R", "Clav_FK.R", "UpperArm_FK.R", "LowerArm_FK.R"] )
+	ArmTwistLRGroups = stereoRegexGroup( "Arm Adjust", "(?=.*(twist|adjust|FK))(?=.*(arm|elbow|shoulder|clav|collar|wrist))|carpal", LeftArmGroup, RightArmGroup, selectable=False )
+	LegTwistLRGroups = stereoRegexGroup( "Leg Adjust", "(?=.*(twist|adjust|FK))(?=.*(leg|thigh|knee|calf|ankle))|tarsal|heel|achil", LeftLegGroup, RightLegGroup, selectable=False )
 	
-	LegTwistLGroup = CreateGroup( "Left Leg Twist", LeftLegGroup, LeftColor, selectable=False, boneNames=["Twist_Thigh.L", "Twist_Thigh_2.L", "Adjust_Knee.L", "Twist_Knee.L", "UpperLeg_FK.L", "LowerLeg_FK.L"] )
-	LegTwistRGroup = CreateGroup( "Right Leg Twist", RightLegGroup, RightColor, selectable=False, boneNames=["Twist_Thigh.R", "Twist_Thigh_2.R", "Adjust_Knee.R", "Twist_Knee.R", "UpperLeg_FK.R", "LowerLeg_FK.R"] )
+	ToesLRGroup = stereoRegexGroup( "Toes", "toe|(?=.*(toe))(?=.*(big|index|middle|ring|pinky))", LeftLegGroup, RightLegGroup )
+	
+	FingerLRGroups = stereoRegexGroup( "Fingers",  "(finger|index|thumb|ring|pinky)|(?=.*(middle))(?=.*(finger))", LeftArmGroup, RightArmGroup ) #I can't assume everything that has "middle" in it is a finger, but everything that has both "middle" and "finger" in it should hopefully get matched.
+	
+	GenitalsGroup = regexGroup( "Genitals", rootGroup, topLevelColor, "vag|butt|ass" ,False)
+	BreastsLRGroup = stereoRegexGroup ( "Breast", "breast|pec", GenitalsGroup, GenitalsGroup, True )
+	VaginaGroup = regexGroup( "Vagina", GenitalsGroup, GenitalColor, "vag|(?<!naso)labia|bulge" ) #don't fucking catch nasolabial mouth bones
+	PenisGroup = regexGroup( "Penis", GenitalsGroup, GenitalColor, "penis|ball|sack" )
+	AnusGroup = regexGroup( "Anus", GenitalsGroup, GenitalColor, "anus" )
+	
+	WingsGroup = regexGroup( "Wings", rootGroup, topLevelColor, "wing" )
+	WingsLRGroup = stereoRegexGroup( "Wing", "wing", WingsGroup, WingsGroup )
+	
+	TailGroup = regexGroup( "Tail", rootGroup, topLevelColor, "tail" )
+	
+	'''
+	AddFlexesToGroup( VaginaGroup, "Vagina" )
+	AddFlexesToGroup( AnusGroup, "Anus" )
+	
 	ToesLGroup = CreateGroup( "Left Toes", LeftLegGroup, LeftColor, selectable=False, boneNames=["Toe#50#.L"] )
 	ToesRGroup = CreateGroup( "Right Toes", RightLegGroup, RightColor, selectable=False, boneNames=["Toe#50#.R"] )
-	
-	FingersLGroup = CreateGroup( "LeftFingers", LeftArmGroup, LeftColor, selectable=False, boneNames=["ValveBiped.Bip01_L_Finger#50#", "Finger#50#.L"] )#who needs defaultanimationgroups.txt? pssh.
-	FingersRGroup = CreateGroup( "RightFingers", RightArmGroup, RightColor, selectable=False, boneNames=["ValveBiped.Bip01_R_Finger#50#", "Finger#50#.R"] )
-	
+	LegTwistLGroup = CreateGroup( "Left Leg Twist", LeftLegGroup, LeftColor, selectable=False, boneNames=["Twist_Thigh.L", "Twist_Thigh_2.L", "Adjust_Thigh.L", "Adjust_Knee.L", "Twist_Knee.L", "UpperLeg_FK.L", "LowerLeg_FK.L", "Calf_FK.L"] )
+	LegTwistRGroup = CreateGroup( "Right Leg Twist", RightLegGroup, RightColor, selectable=False, boneNames=["Twist_Thigh.R", "Twist_Thigh_2.R", "Adjust_Thigh.R", "Adjust_Knee.R", "Twist_Knee.R", "UpperLeg_FK.R", "LowerLeg_FK.R", "Calf_FK.R"] )
+	#FingersLGroup = CreateGroup( "LeftFingers", LeftArmGroup, LeftColor, selectable=False, boneNames=["ValveBiped.Bip01_L_Finger#50#", "Finger#50#.L"] )#who needs defaultanimationgroups.txt? pssh.
+	#FingersRGroup = CreateGroup( "RightFingers", RightArmGroup, RightColor, selectable=False, boneNames=["ValveBiped.Bip01_R_Finger#50#", "Finger#50#.R"] )
 	GenitalsGroup = CreateGroup( "Erogenous", rootGroup, topLevelColor, selectable=False, boneNames=["Butt.//", "Pussy.//"] )
 	BreastsLGroup = CreateGroup( "Left Breast", GenitalsGroup, LeftColor, boneNames=["Breast.L", "Breast_Base_Parent.L", "Breast_Base.L", "Breast_Tip.L", "Breast_#5#.L"] )
 	BreastsRGroup = CreateGroup( "Right Breast", GenitalsGroup, RightColor, boneNames=["Breast.R", "Breast_Base_Parent.R", "Breast_Base.R", "Breast_Tip.R", "Breast_#5#.R"] )
+	AnusGroup = CreateGroup( "Anus", GenitalsGroup, GenitalColor, boneNames=["Root_Anus", "anus.#5#", "Anus.//.#5#"] )
 	LabiaGroup = CreateGroup( "Labia", GenitalsGroup, GenitalColor, boneNames=["Root_Labia", "Labia_#6#.//"] )
 	VaginaGroup = CreateGroup( "Vagina", GenitalsGroup, GenitalColor, boneNames=["Root_Vagina", "Root_Vagoo", "vagina.#5#", "Vagina_#6#.//"] )
-	AddFlexesToGroup( VaginaGroup, "Vagina" )
-	AnusGroup = CreateGroup( "Anus", GenitalsGroup, GenitalColor, boneNames=["Root_Anus", "anus.#5#", "Anus.//.#5#"] )
-	AddFlexesToGroup( AnusGroup, "Anus" )
+	#WingsLGroup = CreateGroup( "Left Wings", WingsGroup, LeftColor, boneNames=["Wing_Root.L", "Wing_#21#.L", "Wing.L", "Wing.L.#5#"] )
+	#WingsRGroup = CreateGroup( "Right Wings", WingsGroup, RightColor, boneNames=["Wing_Root.R", "Wing_#21#.R","Wing.R",  "Wing.R.#5#"] )
+	TailGroup = CreateGroup( "Tail", rootGroup, topLevelColor, boneNames=["tail", "tail #13#", "Tail.#50#"] )
+	'''
 	
-	WingsGroup = CreateGroup( "Wings", rootGroup, topLevelColor )
-	WingsLGroup = CreateGroup( "Left Wings", WingsGroup, LeftColor, boneNames=["Wing_Root.L", "Wing_#21#.L"] )
-	WingsRGroup = CreateGroup( "Right Wings", WingsGroup, RightColor, boneNames=["Wing_Root.R", "Wing_#21#.R"] )
+	HairGroup = regexGroup( "Hair", rootGroup, topLevelColor, "hair", False )
+	HairBackGroup = regexGroup( "Back", HairGroup, CustomColor2, "(?=.*(hair))(?=.*(tail|back))" )
+	HairFrontGroup = regexGroup( "Front", HairGroup, CustomColor2, "(?=.*(hair))(?=.*(fringe|front|bang))" )
+	HairLRGroups = stereoRegexGroup( "Hair", "hair|kanzashi", HairGroup, HairGroup ,True)
 	
-	TailGroup = CreateGroup( "Tail", rootGroup, topLevelColor, boneNames=["tail", "tail #13#"] )
+	FaceGroup = regexGroup( "Face", rootGroup, topLevelColor, "face|teeth|throat", False )
+	TongueGroup = regexGroup( "Tongue", FaceGroup, CustomColor, "tongue")
+	EyesGroup = regexGroup( "Eyes", FaceGroup, CustomColor, "eye" ) #fuck it, might as well, just make sure this stays Before "eye"brows and "eye"lids, etc.
+	EyebrowsGroup = regexGroup( "Eyebrows", EyesGroup, CustomColor2, "brow" )
+	LowerEyelidsGroup = regexGroup( "Lower Eyelids", EyesGroup, CustomColor2, "(?=.*(eyelid))(?=.*(lower))" )
+	UpperEyelidsGroup = regexGroup( "Upper Eyelids", EyesGroup, CustomColor2, "(?=.*(eyelid))(?=.*(upper))" )
 	
-	HairGroup = CreateGroup( "Hair", rootGroup, topLevelColor, boneNames=["Hair_Root", "Hair_Front", "Hair_Front.//", "Hair_Front_#50#", "Hair_Back", "Hair_Back_#8#", "Hair.#20#"] )
-	HairLeftGroup = CreateGroup( "Left Hair", HairGroup, LeftColor, boneNames=["l_hair#100#", "Hair_Tail.L", "Hair_Tail.L.#10#", "Hair_#20#.L", "Hair_Front_#5#.L"] )
-	HairRightGroup = CreateGroup( "Right Hair", HairGroup, RightColor, boneNames=["r_hair#100#", "Hair_Tail.R", "Hair_Tail.R.#10#", "Hair_#20#.R", "Hair_Front_#5#.R"] )
 	
+	ForeHeadGroup = regexGroup( "Forehead", FaceGroup, CustomColor, "forehead" )
+	NoseGroup = regexGroup( "Nose", FaceGroup, CustomColor, "nose|nostril" )
+	CheeksGroup = regexGroup( "Cheek", FaceGroup, CustomColor, "cheek|squint")
+	JawGroup = regexGroup( "Jaw", FaceGroup, CustomColor, "jaw|chin|nasola" )	#It is awkwardly important that this stays below the Vagina group definition.
 	
-	FaceGroup = CreateGroup( "Face", rootGroup, topLevelColor, boneNames=["Jaw", "TongueRoot", "Tongue_01", "Tongue_02", "Teeth.T", "Teeth.B", "throat"] )
-	EyesGroup = CreateGroup( "Eyes", FaceGroup, CustomColor, boneNames=["Eyeball.//", "eye.//"] )
+	LipsGroup = regexGroup( "Lips", FaceGroup, CustomColor, "lip|smile|pucker" ) #yolo
+	
+	EarsGroup = regexGroup( "Ears", FaceGroup, CustomColor, "(?<!for)ear" )	#don't fucking catch forearms.
+	
+	'''
+	AddFlexesToGroup( LipsGroup, "LowerLipFold", "UpperLipFold", "LipsForward", "LipsShrink", "LipUpperDown", "LipLowerUp", "MouthSmile", "MouthSmile2" ) #TODO remove mouthsmile2, use syntax
+	AddFlexesToGroup( JawGroup, "MouthOpen", "Throat" )	#attempting to add these to FaceGroup crashes SFM, don't know why, don't care
+	AddFlexesToGroup( CheeksGroup, "CheeksPuff", "CheeksRaise", "CheeksDeflate" )
+	AddFlexesToGroup( NoseGroup, "NoseFlare" )
 	AddFlexesToGroup( EyesGroup, "EyesBlink", "EyesBlinkHappy", "EyesOpen")
-	EyebrowsGroup = CreateGroup( "Eyebrows", EyesGroup, CustomColor2, boneNames=["Eyebrow_Outer.//", "Eyebrow_Middle.//", "Eyebrow_Inner.//", "Eyebrow_Middle", "brow.T.//", "brow.T.//.#5#", "Eyebrow.//", "Eyebrow.//.#5#"] )
 	AddFlexesToGroup( EyebrowsGroup, "EyebrowsInnerUp", "EyebrowsInnerDown", "EyebrowsOuterDown", "EyebrowsOuterUp" )
-	LowerEyebrowsGroup = CreateGroup ("Lower Eyebrows", EyesGroup, CustomColor2, boneNames=["Eyebrow_Lower_Root.//", "brow.B.//", "brow.B.//.#5#"] )
+	FaceGroup = CreateGroup( "Face", rootGroup, topLevelColor, boneNames=["Root_Face", "Jaw", "lowerJaw", "Teeth.T", "upperTeeth", "Teeth.B", "lowerTeeth", "throat", "Eyelids", "Eyebrows"] )
+	EyesGroup = CreateGroup( "Eyes", FaceGroup, CustomColor, boneNames=["Eyeball.//", "eye.//"] )
+	EyebrowsGroup = CreateGroup( "Eyebrows", EyesGroup, CustomColor2, boneNames=["Eyebrow_Outer.//", "Eyebrow_Middle.//", "Eyebrow_Inner.//", "Eyebrow_Middle", "brow.T.//", "brow.T.//.#5#", "Eyebrow.//", "Eyebrow.//.#5#", "Eyebrow_Devil.//"] )
 	LowerEyelidsGroup = CreateGroup( "Lower Eyelids", EyesGroup, CustomColor2, boneNames=["Eyelid_Lower.//", "Eyelid_Lower_Outer.//", "Eyelid_Lower_Inner.//", "lid.B.//", "lid.B.//.#5#", "LowerEyelid.//"] ) #dunno if I want left/right in these. 
 	UpperEyelidsGroup = CreateGroup( "Upper Eyelids", EyesGroup, CustomColor2, boneNames=["Eyelid_Upper.//", "lid.T.//", "lid.T.//.#5#", "UpperEyelid.//"] )
-	ForeHeadGroup = CreateGroup( "Forehead", FaceGroup, CustomColor, boneNames=["temple.//", "forehead.//", "forehead.//.#4#"] )
+	#LowerEyebrowsGroup = CreateGroup ("Lower Eyebrows", EyesGroup, CustomColor2, boneNames=["Eyebrow_Lower_Root.//", "brow.B.//", "brow.B.//.#5#"] ) #I think only Motoko ever used this, so fuck it.
 	NoseGroup = CreateGroup( "Nose", FaceGroup, CustomColor, boneNames=["Nose_Upper.//", "Nose_Lower.//", "Nose_Tip", "Nostril.//", "nose.//", "nose", "nose.#4#", "nose.//.#2#"])
-	AddFlexesToGroup( NoseGroup, "NoseFlare" )
 	CheeksGroup = CreateGroup( "Cheeks", FaceGroup, CustomColor, boneNames=["Cheek_Outer.//", "Cheek_Inner.//", "Cheek_Main.//", "NoseLine_Inner.//", "NoseLine_Outer.//", "cheek.T.//", "cheek.T.//.#3#", "cheek.B.//", "cheek.B.//.#3#", "Cheek.//", "Cheek.//.#2#"] )
-	AddFlexesToGroup( CheeksGroup, "CheeksPuff", "CheeksRaise", "CheeksDeflate" )
-	JawGroup = CreateGroup( "Jaw", FaceGroup, CustomColor, boneNames=["jaw", "jaw.//", "jaw.//.#2#", "chin", "chin.#2#", "chin.//"] )
-	AddFlexesToGroup( JawGroup, "MouthOpen" )
-	
-	LipsGroup = CreateGroup( "Lips", FaceGroup, CustomColor, boneNames=["Lip_Corner.//", "Lip_Upper.//", "Lip_Lower.//", "Lip_Lower_Middle", "Lip_Upper_Middle", "lip.T.//", "lip.T.//.#3#", "lip.B.//", "lip.B.//.#3#", "Lip_Top", "Lip_Top.//", "Lip_Bottom", "Lip_Bottom.//"] )
-	AddFlexesToGroup( LipsGroup, "LowerLipFold", "UpperLipFold", "LipsForward", "LipsShrink", "LipUpperDown", "LipLowerUp", "MouthSmile", "MouthSmile2" ) #TODO remove mouthsmile2, use syntax
-	
+	JawGroup = CreateGroup( "Jaw", FaceGroup, CustomColor, boneNames=["jaw", "jaw.//", "jaw.//.#2#", "chin", "chin.#2#", "chin.//", "NasolabialLower.//", "Chin#3#", "Chin", "Chin.//"] )
+	LipsGroup = CreateGroup( "Lips", FaceGroup, CustomColor, boneNames=["Lip_Corner.//", "Lip_Upper.//", "Lip_Lower.//", "Lip_Lower_Middle", "Lip_Upper_Middle", "lip.T.//", "lip.T.//.#3#", "lip.B.//", "lip.B.//.#3#", "Lip_Top", "Lip_Top.//", "Lip_Bottom", "Lip_Bottom.//", "Mouth_Corner.//", "Lip_Bot.//", "Lip_Bot_Mid", "Lip_Top_Mid"] )
 	EarsGroup = CreateGroup( "Ears", FaceGroup, CustomColor, boneNames=["ear.//", "ear.//.#6#"] )
+	'''
 	
-	ClothesGroup = CreateGroup( "Clothes", rootGroup, topLevelColor, boneNames=["shades", "glasses"])
-	RibbonsGroup = CreateGroup( "Ribbons", ClothesGroup, CustomColor, boneNames=["ribbon back #20#", "ribbon §#5#"] )
-	SkirtGroup = CreateGroup( "Skirt", ClothesGroup, CustomColor, boneNames=["skirt #20#$"] )
+	ClothesGroup = regexGroup( "Clothes", rootGroup, topLevelColor, "weapon|shade|glass|gun|headband|cloth|mask|flower|hairpiece|bunny|gear|pouch|mag|pistol|zip|backpad|fit(arm|leg|tit|breast|butt|chest|torso|upper|lower|bikini|top)|chestcompress|visor|wibbly|timeywimey|jacket" , False)
+	ClothesLRGroups = stereoRegexGroup( "Clothes", "fringe", ClothesGroup, ClothesGroup )
+	ClothesFrontGroup = regexGroup( "Front Clothes", ClothesGroup, CustomColor,"(?=.*(cloth))(?=.*(front))")
+	ClothesBackGroup = regexGroup( "Back Clothes", ClothesGroup, CustomColor, "(?=.*(cloth))(?=.*(back))")
 	
-	###MODEL SPECIFIC SHIT
+	RibbonsGroup = regexGroup( "Ribbons", ClothesGroup, CustomColor, "ribbon" )
+	SkirtGroup = regexGroup( "Skirt", ClothesGroup, CustomColor, "skirt" )
+	MercySkirtGroup = regexGroup ( "Devil Skirt", SkirtGroup, CustomColor, "skirt_d" )
+	
+	FuckedGroup = regexGroup( "STRAY_VERTS", rootGroup, RightColor, "blender_implicit")
+	
+	
+	'''
+	FlexesGroup = CreateGroup( "Flexes", ClothesGroup, CustomColor, boneNames=[] )
+	AddFlexesToGroup( FlexesGroup, "ChestCompress", "ChestCompress2", "FitArms", "FitLegs", "FitFeet", "FitTits", "ValButt", "FitBikini" )
+	
+	ClothesGroup = CreateGroup( "Clothes", rootGroup, topLevelColor, boneNames=["Weapon", "shades", "glasses", "MediGun", "Medigun.#3#", "HeadBand", "cloth top.//.#3#", "cloth back #5#.//", "cloth top.//.#5#", "Mask1", "Flower1", "HairPiece_Root"])
+	ClothesFrontGroup = CreateGroup( "Front Clothes", ClothesGroup, CustomColor, boneNames=["Cloth_Front.#10#"])
+	ClothesBackGroup = CreateGroup( "Back Clothes", ClothesGroup, CustomColor, boneNames=["Cloth_Back.#10#"])
+	RibbonsGroup = CreateGroup( "Ribbons", ClothesGroup, CustomColor, boneNames=["ribbon back #20#", "ribbon #5# ", "BikiniString_Root", "BikiniString.//", "Ribbon_Back_Root", "ribbon back.//.#5#", "ribbon back top.//.#5#", "ribbon wrist $ #5#", "Ribbon.//.#5#", "Ribbon_Back_Top.#5#", "Ribbon_Back.#5#"] )
+	SkirtGroup = CreateGroup( "Skirt", ClothesGroup, CustomColor, boneNames=["skirt #20#$", "Skirt.//.#4#", "skirt front.#5#", "skirt back.#5#", "skirt.#5#"] )
+	'''
+	'''
+	###MODEL SPECIFIC SHIT - which kind of shouldn't be necessary. Or maybe it is. Definitely needs cleanup. TODO
+	FuckedGroup = CreateGroup( "YOU FUCKED UP", rootGroup, CustomColor, boneNames=["blender_implicit"])
 	#Met's Motoko
 	MotokoGroup = CreateGroup( "Motoko Gear", ClothesGroup, CustomColor, boneNames=["ThighGear", "Pouch_Big", "Pouch_Small", "Mag1", "Mag2", "Pouch_Belt", "Pistol", "Zip_Root", "Zip", "BackPad.//"] )
 	CollarGroup = CreateGroup( "Collar", ClothesGroup, CustomColor, boneNames=["Collar_Back", "Collar.//"] )
@@ -617,6 +743,9 @@ def BuildRig():
 	#Met's Tracer
 	TracerGroup = CreateGroup( "Tracer", ClothesGroup, CustomColor, selectable=False, boneNames=["TracerVisor", "ShoulderGear.//", "Visor", "WibblyWobbly", "TimeyWimey", "JacketCollar.//", "JacketCollar_Back", "Jacket.//"] )
 	AddFlexesToGroup( TracerGroup, "FitJacket", "FitLegsUpper", "FitLegsLower", "KirbyLeggings", "SmoothBody" )
+	#Met's Mercy
+	MercySkirtGroup = CreateGroup( "Devil Skirt", SkirtGroup, CustomColor, boneNames=["Skirt_D.//", "Skirt_D.//.#5#", "Skirt_D_B.//", "Skirt_D_B.//.#5#"])
+	'''
 	
 	################################
 	sfmUtils.AddDagControlsToGroup( rigBodyGroup, rigRoot, rigHips, rigPelvis )
@@ -675,11 +804,10 @@ def BuildRig():
 	RightLegGroup.SetGroupColor( RightColor, False )
 	LeftLegGroup.SetGroupColor( LeftColor, False )
 	
-	#deleting empty and near-empty groups
+	#deleting empty and near-empty groups #TODO near empty*
 	rootGroup.DestroyEmptyChildren()
 	
-	
-	print("RIG DONE")
+	print("RIG DONE")	#TODO could print some extra info or some shit.
 	# End the rig definition
 	sfm.EndRig()
 	return

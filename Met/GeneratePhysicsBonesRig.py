@@ -6,7 +6,7 @@ def extrude(x, y, z):
 #what the script expects: You are in pose mode, with one or more bones selected. If you are doing hair, you need to do one string at a time.
 #when finished: rename first vertex group to the parent bone of your bones.
 
-#Way it works:
+#Way it works:	#Note: It does not work. Shit will glitch out and fuck up, I don't know why.
 #	make a mesh that has a vertex at each bone (to later apply cloth physics on)
 #	make a vertexgroup for each vert
 #	make a vertexgroup that contains the whole mesh
@@ -86,7 +86,7 @@ physMesh.modifiers["Cloth"].settings.vertex_group_mass = physMesh.vertex_groups[
 bpy.ops.object.modifier_add(type='COLLISION')
 
 #parenting mesh to armature
-physMesh.parent = myArmature
+#physMesh.parent = myArmature #BAD FUCKING IDEA
 
 #We are done with everything we have to do on the mesh
 

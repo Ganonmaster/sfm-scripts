@@ -14,6 +14,8 @@ for v in vGroups:
     try:
         if(splitName[1] == "L"):
             newName = splitName[0]+".R"
+            if (len(splitName) > 2):
+                newName += "."+splitName[2]
             if(newName not in vGroups):
                 bpy.ops.object.vertex_group_add()
                 vGroups[len(vGroups)-1].name = newName
