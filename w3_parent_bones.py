@@ -110,12 +110,101 @@ def script():
         'l_pinky1': 'l_hand',
         'l_pinky2': 'l_pinky1',
         'l_pinky3': 'l_pinky2',
+        
+        
+        #head / face
+        'thyroid': 'head',
+        'hroll': 'neck',
+        'jaw': 'head',
+        'ears': 'head',
+        'nose': 'head',
+        'nose_base': 'head',
+        'lowwer_lip': 'head',
+        'upper_lip': 'head',
+        'chin': 'head',
+        
+        'right_temple': 'head',
+        'right_forehead': 'head',
+        'right_chick1': 'head',
+        'right_chick2': 'head',
+        'right_chick3': 'head',
+        'right_chick4': 'head',
+        'right_nose1': 'head',
+        'right_nose2': 'head',
+        'right_nose3': 'head',
+        'right_eyebrow1': 'head',
+        'right_eyebrow2': 'head',
+        'right_eyebrow3': 'head',
+        'right_eye': 'head',
+        
+        'upper_right_eyelid1': 'head',
+        'upper_right_eyelid2': 'head',
+        'upper_right_eyelid3': 'head',
+        'upper_right_eyelid_fold': 'head',
+        'lowwer_right_eyelid1': 'head',
+        'lowwer_right_eyelid2': 'head',
+        'lowwer_right_eyelid3': 'head',
+        'lowwer_right_eyelid_fold': 'head',
+        
+        'right_chick2': 'head',
+        'right_chick3': 'head',
+        'right_mouth_fold1': 'jaw',
+        'right_mouth2': 'head',
+        'right_mouth1': 'jaw',
+        'upper_right_lip': 'head',
+        'lowwer_right_lip': 'jaw',
+        'right_corner_lip2': 'jaw',
+        'right_corner_lip1': 'head',
+        'right_mouth3': 'head',
+        'right_mouth4': 'head',
+        'right_mouth_fold2': 'head',
+        'right_mouth_fold3': 'head',
+        'right_mouth_fold4': 'head',
+        
+        'left_temple': 'head',
+        'left_forehead': 'head',
+        'left_chick1': 'head',
+        'left_chick2': 'head',
+        'left_chick3': 'head',
+        'left_chick4': 'head',
+        'left_nose1': 'head',
+        'left_nose2': 'head',
+        'left_nose3': 'head',
+        'left_eyebrow1': 'head',
+        'left_eyebrow2': 'head',
+        'left_eyebrow3': 'head',
+        'left_eye': 'head',
+        
+        'upper_left_eyelid1': 'head',
+        'upper_left_eyelid2': 'head',
+        'upper_left_eyelid3': 'head',
+        'upper_left_eyelid_fold': 'head',
+        'lowwer_left_eyelid1': 'head',
+        'lowwer_left_eyelid2': 'head',
+        'lowwer_left_eyelid3': 'head',
+        'lowwer_left_eyelid_fold': 'head',
+        
+        'left_chick2': 'head',
+        'left_chick3': 'head',
+        'left_mouth_fold1': 'jaw',
+        'left_mouth2': 'head',
+        'left_mouth1': 'jaw',
+        'upper_left_lip': 'head',
+        'lowwer_left_lip': 'jaw',
+        'left_corner_lip2': 'jaw',
+        'left_corner_lip1': 'head',
+        'left_mouth3': 'head',
+        'left_mouth4': 'head',
+        'left_mouth_fold2': 'head',
+        'left_mouth_fold3': 'head',
+        'left_mouth_fold4': 'head',
     }
 
     # Create bones
     bpy.ops.object.mode_set(mode='EDIT')
     
     for bone in armature.data.edit_bones:
+        pprint(bone)
         parent_name = parent_dict.get(bone.name)
         if not parent_name:
             print('no parent for %s', bone.name)
@@ -125,6 +214,7 @@ def script():
         if parent:
             bone.parent = parent
             bone.use_connect = False
+            pprint(parent)
         else:
             print('parent not found')
         
