@@ -198,6 +198,15 @@ def script():
         'left_mouth_fold2': 'head',
         'left_mouth_fold3': 'head',
         'left_mouth_fold4': 'head',
+        
+        #util
+        'dyng_frontbag_01': 'torso',
+        
+        #succubus
+        'dyng_tail_01': 'torso',
+        'dyng_tail_02': 'dyng_tail_01',
+        'dyng_tail_03': 'dyng_tail_02',
+        'dyng_tail_04': 'dyng_tail_03',
     }
 
     # Create bones
